@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perde Algılayıcı Testleri — Bağlama Akort</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --fg: #1d1c1a; --muted: #6b675f; --card: #ffffff; --line: #e2ded5;
+    --ok: #1f7a3a; --ok-bg: #e5f4e9; --bad: #b3261e; --bad-bg: #fbe7e5; --accent: #8a4b14;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161513; --fg: #ece9e3; --muted: #a39e94; --card: #1f1e1b; --line: #33312c;
+      --ok: #6fd18c; --ok-bg: #18301f; --bad: #ff8a80; --bad-bg: #3a1c19; --accent: #e0a46a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 8px; }
+  p.lead { color: var(--muted); margin: 0 0 16px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 150px; }
+  .tile b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: 0.85rem; }
+  .tile.ok b { color: var(--ok); } .tile.bad b { color: var(--bad); }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  label { color: var(--muted); }
+  .wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--card); font-weight: 600; color: var(--muted); font-size: 0.85rem; }
+  td.num { text-align: right; }
+  tr.group td { background: var(--bg); font-weight: 600; }
+  tr.fail td { background: var(--bad-bg); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .note { color: var(--bad); font-weight: 600; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; font-size: 12px; }
+  .hide-pass tr.pass { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Perde algılayıcı testleri</h1>
+  <p class="lead"><code>Baglama.PitchDetector.detect</code> sentetik sinyallerle sınanır: saf sinüs, harmonikli testere,
+    Karplus-Strong tel sesi, temel frekansı zayıf/eksik sinyal, oktav pes bam eklenmiş sinyal ve beyaz gürültü.
+    Hedef: temiz sinyalde ±1 cent, tel/gürültülü sinyalde ±3 cent, oktav hatası yok.</p>
+
+  <div class="controls">
+    <button id="run">Testleri yeniden çalıştır</button>
+    <button id="sweep">Rastgele tarama (1000 senaryo)</button>
+    <button id="bench">Performans ölç</button>
+    <label><input type="checkbox" id="onlyFail"> Yalnız başarısızları göster</label>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <h2>Rastgele tarama ve performans</h2>
+  <pre id="extra">Henüz çalıştırılmadı.</pre>
+
+  <h2>Senaryolar</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr>
+        <th>Durum</th><th>Senaryo</th><th>sr / N</th><th class="num">Beklenen (Hz)</th><th class="num">Bulunan (Hz)</th>
+        <th class="num">Hata (cent)</th><th class="num">Tolerans</th><th class="num">Clarity</th><th class="num">Süre (ms)</th><th>Not</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<script src="../js/pitch-detector.js"></script>
+<script src="pitch-test-cases.js"></script>
+<script>
+(function () {
+  'use strict';
+  var B = window.Baglama;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function tile(label, value, cls) {
+    return '<div class="tile ' + (cls || '') + '"><b>' + esc(value) + '</b><span>' + esc(label) + '</span></div>';
+  }
+
+  function run() {
+    $('run').disabled = true;
+    $('rows').innerHTML = '<tr><td colspan="10">Çalışıyor…</td></tr>';
+    var cases = B.PitchTests.buildCases();
+    var results = [];
+    var i = 0;
+    (function batch() {
+      var end = Math.min(cases.length, i + 12);
+      for (; i < end; i++) results.push(B.PitchTests.runCase(B.PitchDetector, cases[i]));
+      if (i < cases.length) { setTimeout(batch, 0); return; }
+      render(results, cases);
+      $('run').disabled = false;
+    })();
+  }
+
+  function render(results, cases) {
+    var pass = 0, octave = 0, maxClean = 0, maxNoisy = 0, totalMs = 0;
+    var html = '', lastGroup = null;
+    results.forEach(function (r, idx) {
+      if (r.pass) pass++;
+      if (/OKTAV/.test(r.note)) octave++;
+      totalMs += r.ms;
+      var tol = cases[idx].tol;
+      if (r.errCents != null) {
+        if (tol <= 1) maxClean = Math.max(maxClean, Math.abs(r.errCents));
+        else maxNoisy = Math.max(maxNoisy, Math.abs(r.errCents));
+      }
+      if (r.group !== lastGroup) {
+        lastGroup = r.group;
+        var g = results.filter(function (x) { return x.group === r.group; });
+        var gp = g.filter(function (x) { return x.pass; }).length;
+        html += '<tr class="group"><td colspan="10">' + esc(r.group) + ' — ' + gp + '/' + g.length +
+          ' <span class="pill ' + (gp === g.length ? 'ok' : 'bad') + '">' + (gp === g.length ? 'GEÇTİ' : 'KALDI') + '</span></td></tr>';
+      }
+      html += '<tr class="' + (r.pass ? 'pass' : 'fail') + '">' +
+        '<td><span class="pill ' + (r.pass ? 'ok' : 'bad') + '">' + (r.pass ? 'OK' : 'HATA') + '</span></td>' +
+        '<td>' + esc(r.name) + '</td>' +
+        '<td>' + r.sr + ' / ' + r.n + '</td>' +
+        '<td class="num">' + (r.f0 ? r.f0.toFixed(3) : '—') + (r.matched && Math.abs(r.matched - r.f0) > 1e-9 ? ' (bam ' + r.matched.toFixed(2) + ')' : '') + '</td>' +
+        '<td class="num">' + (r.res ? r.res.hz.toFixed(3) : 'null') + '</td>' +
+        '<td class="num">' + (r.errCents != null ? r.errCents.toFixed(3) : '—') + '</td>' +
+        '<td class="num">' + (tol != null ? '±' + tol : 'null') + '</td>' +
+        '<td class="num">' + (r.res ? r.res.clarity.toFixed(3) : '—') + '</td>' +
+        '<td class="num">' + r.ms.toFixed(2) + '</td>' +
+        '<td class="' + (r.note && !r.pass ? 'note' : '') + '">' + esc(r.note || '') + '</td></tr>';
+    });
+    $('rows').innerHTML = html;
+    $('summary').innerHTML =
+      tile('geçen senaryo', pass + ' / ' + results.length, pass === results.length ? 'ok' : 'bad') +
+      tile('oktav hatası', octave, octave ? 'bad' : 'ok') +
+      tile('maks hata, temiz (±1)', maxClean.toFixed(3) + ' cent', maxClean <= 1 ? 'ok' : 'bad') +
+      tile('maks hata, tel/gürültü (±3)', maxNoisy.toFixed(3) + ' cent', maxNoisy <= 3 ? 'ok' : 'bad') +
+      tile('ortalama süre', (totalMs / results.length).toFixed(2) + ' ms');
+    applyFilter();
+  }
+
+  function applyFilter() {
+    document.querySelector('.wrap').classList.toggle('hide-pass', $('onlyFail').checked);
+  }
+
+  $('run').onclick = run;
+  $('onlyFail').onchange = applyFilter;
+  $('sweep').onclick = function () {
+    $('sweep').disabled = true;
+    $('extra').textContent = 'Rastgele tarama çalışıyor…';
+    setTimeout(function () {
+      var s = B.PitchTests.sweep(B.PitchDetector, 1000, Date.now() & 0xffff, 3);
+      var txt = 'Rastgele tarama (1000 senaryo, ±3 cent): ' + s.pass + '/' + s.total + ' geçti, oktav hatası ' + s.octaveErrors +
+        ', null ' + s.nulls + ', p95 |hata| ' + s.p95AbsCents.toFixed(3) + ' cent\n' +
+        'clarity ≥ 0.8 (AudioEngine kapısı) sonrası: ' + s.gated.pass + '/' + s.gated.accepted + ' ±3 cent içinde, oktav hatası ' +
+        s.gated.octaveErrors + ', maks |hata| ' + s.gated.maxAbsCents.toFixed(2) + ' cent\n' +
+        (s.fails.length ? '\nBaşarısızlar:\n  ' + s.fails.join('\n  ') : '');
+      $('extra').textContent = txt;
+      $('sweep').disabled = false;
+    }, 30);
+  };
+  $('bench').onclick = function () {
+    $('bench').disabled = true;
+    setTimeout(function () {
+      var lines = [[48000, 4096], [48000, 2048], [44100, 4096], [96000, 8192]].map(function (p) {
+        return 'sr=' + p[0] + ' N=' + p[1] + ': ' + B.PitchTests.benchmark(B.PitchDetector, p[0], p[1], 300).toFixed(3) + ' ms/kare';
+      });
+      $('extra').textContent = 'Performans (kare başına ortalama):\n' + lines.join('\n');
+      $('bench').disabled = false;
+    }, 30);
+  };
+  run();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes / Tunings Testleri</title>
+<style>
+  :root { color-scheme: light dark; --ok: #1a7f37; --bad: #cf222e; --muted: #777; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; max-width: 960px; margin-inline: auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .summary { font-weight: 600; margin: 8px 0 16px; }
+  .summary.ok { color: var(--ok); } .summary.bad { color: var(--bad); }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 4px 8px; border-bottom: 1px solid #8884; text-align: left; vertical-align: top; }
+  .pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+  .detail { color: var(--muted); font-size: 12px; }
+  .wrap { overflow-x: auto; }
+  section { margin-top: 24px; }
+  select, button { font: inherit; padding: 4px 8px; margin: 2px; }
+  .strings button { min-width: 120px; }
+</style>
+</head>
+<body>
+<h1>Baglama.Notes / Baglama.Tunings testleri</h1>
+<div class="detail">Bu sayfa js/notes.js, js/tunings.js ve js/reference-tone.js dosyalarını yükler ve
+tests/notes-test-cases.js içindeki testleri çalıştırır. Aynı testler Node ile: <code>node tests/run-notes-tests.js</code></div>
+<div id="summary" class="summary">Çalışıyor…</div>
+<div class="wrap"><table id="results"><thead><tr><th>Durum</th><th>Test</th><th>Ayrıntı</th></tr></thead><tbody></tbody></table></div>
+
+<section>
+  <h2>Elle dinleme: referans ses</h2>
+  <div>
+    <select id="inst"></select>
+    <select id="duzen"></select>
+    <select id="mode"><option value="pluck">Tel (Karplus-Strong)</option><option value="sine">Sinüs</option></select>
+    <button id="stop">Durdur</button>
+  </div>
+  <div class="strings" id="strings"></div>
+  <div class="wrap"><table id="tbl"><thead><tr><th>Tel</th><th>Nota</th><th>Hz</th><th>Gruptaki teller</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<script src="../js/notes.js"></script>
+<script src="../js/tunings.js"></script>
+<script src="../js/reference-tone.js"></script>
+<script src="notes-test-cases.js"></script>
+<script>
+(function () {
+  var B = window.Baglama;
+  var tbody = document.querySelector('#results tbody');
+  var res = window.BaglamaNotesTests(B);
+  var fails = 0;
+  res.forEach(function (r) {
+    if (!r.pass) fails++;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="' + (r.pass ? 'pass">GEÇTİ' : 'fail">KALDI') + '</td><td></td><td class="detail"></td>';
+    tr.children[1].textContent = r.name;
+    tr.children[2].textContent = r.detail || '';
+    tbody.appendChild(tr);
+  });
+  var sum = document.getElementById('summary');
+  sum.textContent = (res.length - fails) + '/' + res.length + ' test geçti';
+  sum.className = 'summary ' + (fails ? 'bad' : 'ok');
+
+  var T = B.Tunings, inst = document.getElementById('inst'), duz = document.getElementById('duzen');
+  T.INSTRUMENTS.forEach(function (i) { inst.add(new Option(i.label, i.id)); });
+  T.DUZENLER.forEach(function (d) { duz.add(new Option(d.label, d.id)); });
+  function render() {
+    var box = document.getElementById('strings'); box.innerHTML = '';
+    var tb = document.querySelector('#tbl tbody'); tb.innerHTML = '';
+    T.getStringsPhysical(inst.value, duz.value, 0).forEach(function (s) {
+      var b = document.createElement('button');
+      b.textContent = s.label + ' — ' + s.noteName;
+      b.onclick = function () { B.ReferenceTone.play(s.hz, { mode: document.getElementById('mode').value }); };
+      box.appendChild(b);
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td></td><td></td><td></td>';
+      tr.children[0].textContent = s.label;
+      tr.children[1].textContent = s.noteName + ' / ' + s.noteNameEn;
+      tr.children[2].textContent = s.hz.toFixed(2);
+      tr.children[3].textContent = s.courses.map(function (c) { return c.noteName + (c.isBam ? ' (' + c.kind + ')' : ''); }).join(', ');
+      tb.appendChild(tr);
+    });
+  }
+  inst.onchange = duz.onchange = render;
+  document.getElementById('stop').onclick = function () { B.ReferenceTone.stop(); };
+  render();
+})();
+</script>
+</body>
+</html>
