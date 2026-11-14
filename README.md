@@ -76,6 +76,16 @@ tests/                   tarayıcıda açılan test ve demo sayfaları (ui-demo.
 docs/DUZENLER.md         düzenler ve kaynaklar
 ```
 
+## Telefona uygulama olarak kurma (PWA)
+
+https://farukduzenli61.github.io/baglama-tuner/ adresini telefonda açın:
+
+- **Android (Chrome):** Sayfanın altındaki **📲 Ana ekrana ekle** düğmesine dokunun (ya da menü → "Uygulamayı yükle").
+- **iPhone (Safari):** Paylaş düğmesi → **Ana Ekrana Ekle**.
+
+Bir kez açıldıktan sonra internet olmadan da çalışır. İnternet varken her açılışta en son sürüm yüklenir.
+İkonlar `tools/make-icons.py` ile üretilir (Pillow gerekir).
+
 ## Hakkında
 
 Bu program, Anthropic'in yapay zekâ asistanı [Claude](https://claude.ai) (Claude Code) ile oluşturulmuştur.

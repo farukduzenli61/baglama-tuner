@@ -522,3 +522,18 @@ details.settings[open] > summary::before { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* PWA kurulum */
+.install-box { margin: 0.6em 0; }
+.install-btn {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.install-btn:hover { background: var(--accent); color: var(--accent-text); }

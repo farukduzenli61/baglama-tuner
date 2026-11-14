@@ -446,6 +446,60 @@
     } catch (e) { /* eski tarayıcı */ }
   }
 
+  // ---------- PWA: service worker + "Ana ekrana ekle" ----------
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  }
+  function setupPwa() {
+    // file:// altında service worker çalışmaz; yalnızca http(s)
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      var reg = function () {
+        navigator.serviceWorker.register('sw.js').catch(function (e) { log('SW kaydı başarısız', e); });
+      };
+      if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
+    }
+    if (isStandalone()) return;
+
+    var footer = document.querySelector('.footer');
+    if (!footer) return;
+    var box = document.createElement('p');
+    box.className = 'install-box';
+    box.hidden = true;
+    var credit = footer.querySelector('.footer-credit');
+    footer.insertBefore(box, credit || null);
+
+    var deferred = null;
+    window.addEventListener('beforeinstallprompt', function (ev) {
+      // Android / masaüstü Chrome-Edge: kendi düğmemizle kurulum öner
+      ev.preventDefault();
+      deferred = ev;
+      box.textContent = '';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'install-btn';
+      btn.textContent = '📲 Ana ekrana ekle';
+      btn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.then(function () { deferred = null; box.hidden = true; }, function () {});
+      });
+      box.appendChild(btn);
+      box.hidden = false;
+    });
+    window.addEventListener('appinstalled', function () { box.hidden = true; });
+
+    // iOS Safari kurulum olayı vermez: kısa yönerge göster
+    var ua = navigator.userAgent || '';
+    var isIos = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIos) {
+      box.textContent = '📲 Ana ekrana eklemek için: Paylaş düğmesi → "Ana Ekrana Ekle"';
+      box.hidden = false;
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(setupPwa, 0); });
+  else setTimeout(setupPwa, 0);
+
   B.App = { boot: boot, getSettings: function () { return settings; } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
