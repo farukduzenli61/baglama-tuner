@@ -336,7 +336,15 @@
     // Ekran okuyucu duyuruları
     els.live = el('div', { className: 'visually-hidden', 'aria-live': 'polite', 'aria-atomic': 'true', id: 'live' });
 
-    var footer = el('footer', { className: 'footer', text: 'Çevrimdışı çalışır · Ses yalnızca tarayıcınızda işlenir, hiçbir yere gönderilmez.' });
+    var footer = el('footer', { className: 'footer' }, [
+      el('p', { text: 'Çevrimdışı çalışır · Ses yalnızca tarayıcınızda işlenir, hiçbir yere gönderilmez.' }),
+      el('p', { className: 'footer-credit' }, [
+        'Bu program, Anthropic\'in yapay zekâ asistanı ',
+        el('a', { href: 'https://claude.ai', target: '_blank', rel: 'noopener', text: 'Claude' }),
+        ' (Claude Code) ile oluşturulmuştur. · ',
+        el('a', { href: 'https://github.com/farukduzenli61/baglama-tuner', target: '_blank', rel: 'noopener', text: 'Kaynak kod' })
+      ])
+    ]);
 
     appendChildren(root, [top, selectors, els.settings, els.message, els.tuner, mic, strings, footer, els.live]);
     setMicState('idle');

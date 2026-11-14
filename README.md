@@ -75,3 +75,9 @@ js/ui.js, js/app.js      arayüz ve uygulama
 tests/                   tarayıcıda açılan test ve demo sayfaları (ui-demo.html: mikrofonsuz arayüz demosu)
 docs/DUZENLER.md         düzenler ve kaynaklar
 ```
+
+## Hakkında
+
+Bu program, Anthropic'in yapay zekâ asistanı [Claude](https://claude.ai) (Claude Code) ile oluşturulmuştur.
+
+Canlı sürüm: https://farukduzenli61.github.io/baglama-tuner/

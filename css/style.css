@@ -515,6 +515,9 @@ details.settings[open] > summary::before { transform: rotate(90deg); }
   color: var(--text-3);
   padding-top: 4px;
 }
+.footer p { margin: 0.25em 0; }
+.footer a { color: inherit; text-decoration: underline; }
+.footer a:hover { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
